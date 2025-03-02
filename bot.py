@@ -300,7 +300,7 @@ def handle_employee_flow(chat_id, text, sender_name):
         return
         
     elif text == '3':
-        send_message(chat_id, "⚠️ Liste os produtos em falta (separados por vírgula):")
+        send_message(chat_id, "⚠️ Liste os produtos em falta:\n \n> *Colocando o codigo reduzido*")
         employee_state[chat_id] = 'aguardando_faltantes'
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         unrecognized_count[chat_id] = 0  # Reseta contador
