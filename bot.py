@@ -9,7 +9,7 @@ user_blocked_1 = {}
 feedback_pending = {}
 unrecognized_count = {}
 colaboradores = {}  
-administradores = {}  
+administradores = {"558788149274@c.us"}  
 employee_state = {}  
 
 
@@ -105,17 +105,21 @@ def handle_blocked_user(chat_id, text):
     print(f"Ignorando mensagem bloqueada de {chat_id}")
     return False
 
-def handle_blocked_collaborator(chat_id, text):
+def handle_blocked_collaborator(chat_id):
     block_data = user_blocked_1.get(chat_id)
     if not block_data:
-        return False
-    
+        return False  # Não está bloqueado
     current_time = time()
-    
-    # Se enviar qualquer mensagem, cancela o bloqueio
-    del user_blocked_1[chat_id]
-    send_message(chat_id, "🔓 Bloqueio de colaborador removido. Pode continuar operando.")
-    return True
+
+    if (current_time - block_data['blocked_at']) >= 60:
+        if not block_data['apology_sent']:
+            user_blocked_1[chat_id]['apology_sent'] = True
+        del user_blocked_1[chat_id]
+        send_message(chat_id, "🔓 Bloqueio de colaborador removido. Pode continuar operando.")
+        return True  # Bloqueio expirado e removido
+
+    print(f"Ignorando mensagem bloqueada de {chat_id}")
+    return False  # Ainda bloqueado
 
 def on_message(message):
     chat_id = message.get('from', '')
@@ -124,10 +128,11 @@ def on_message(message):
 
     if message_type == 'audio':
         print(f"Áudio recebido de {sender_name} ({chat_id})")
-        send_message(chat_id, "🎵 Olá {sender_name}!\n \nPor questões de segurança, vamos direcionar você para nosso atendente.\n \n⏳ Aguarde um momento!")
+        send_message(chat_id, f"🎵 Olá {sender_name}!\n \nPor questões de segurança, vamos direcionar você para nosso atendente.\n \n⏳ Aguarde um momento!")
         user_blocked[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         unrecognized_count[chat_id] = 0
         return
+
     text = message.get('body', '').strip().lower()
     
     if not chat_id or not text:
@@ -155,6 +160,14 @@ def on_message(message):
         else:
             return
 
+    if chat_id in colaboradores:
+        if chat_id in user_blocked_1:
+            # Verifica se o bloqueio ainda está ativo
+            if not handle_blocked_collaborator(chat_id):
+                return  # Ainda bloqueado, ignora a mensagem
+        handle_employee_flow(chat_id, text, sender_name)
+        return
+
     respostas = {
         "menu": f"👋 Oi {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "oi": f"👋 Oi {sender_name}!\n \n 🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
@@ -174,7 +187,8 @@ def on_message(message):
         "obrigado": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛",
         "obrigada": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛", 
         "👍🏼": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛",
-        "🫱🏻‍🫲🏻": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛", 
+        "🫱🏻‍🫲🏻": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛",
+        "por nada": "🥰 A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛"
         
 
     }
@@ -187,7 +201,7 @@ def on_message(message):
     # Registro de colaborador
     if text.isdigit() and len(text) == 6 and chat_id not in colaboradores:
         colaboradores[chat_id] = text
-        send_message(chat_id, f"✅ Registrado como colaborador #{text}\n{EMPLOYEE_MENU}")
+        send_message(chat_id, f"✅ Registrado como colaborador #{text}\n \n \n{EMPLOYEE_MENU}")
         if chat_id in administradores:
             send_message(chat_id, ADMIN_MENU)
         return
@@ -196,6 +210,7 @@ def on_message(message):
     if chat_id in colaboradores:
         handle_employee_flow(chat_id, text, sender_name)
         return
+
     if text == "2":
         send_file(chat_id, PDF_PROMOCOES)
 
@@ -240,21 +255,30 @@ def on_message(message):
     send_message(chat_id, response)
     unrecognized_count[chat_id] = count + 1 
 
-EMPLOYEE_MENU = """👷♂️ *MENU COLABORADOR* 👷♀️
+EMPLOYEE_MENU = """👷*MENU COLABORADOR* 👷
+
     Escolha uma opção:
+
 1️⃣ - Solicitar transferência entre filiais
 2️⃣ - Fazer pedido de compra
 3️⃣ - Reportar produtos em falta
+4️⃣ - Atendimento humano
 0️⃣ - Sair do modo colaborador"""
 
 ADMIN_MENU = """🔧 *MENU ADMINISTRADOR* 🔧
+
 Opções adicionais:
-4️⃣ - Listar colaboradores (admin)
+
 5️⃣ - Remover colaborador (admin)
-6️⃣ - Exportar dados de colaboradores
+6️⃣ - Listar colaboradores (admin)
 7️⃣ - Limpar todos os registros
 8️⃣ - Disparo em massa"""
 
+RESPOSTAS_COLABORADOR = {
+    "obrigado": 'Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛', 
+    'obrigada': "Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛", 
+    "ok": "Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛"
+    }
 
 def on_message_colaborador(message):
     chat_id = message.get('from', '')
@@ -278,7 +302,7 @@ def handle_employee_flow(chat_id, text, sender_name):
         if chat_id in user_blocked_1:
             del user_blocked_1[chat_id]
             
-        send_message(chat_id, "🚪 Modo colaborador desativado.")
+        send_message(chat_id, "🚪 Modo colaborador desativado!\n \n⚠️ *ATENCÃO* ⚠️\n \n> *AO SAIR DO MODO COLABORADOR, VOCE DEVERA EFETUAR LOGIN NOVAMENTE COM SUA MATRICULA PARA ACESSAR AS OPCÕES!*")
         # Envia o menu do cliente corretamente
         send_message(chat_id, on_message().format(sender_name=sender_name))
         return True
@@ -289,29 +313,33 @@ def handle_employee_flow(chat_id, text, sender_name):
         send_message(chat_id, "Boas vendas!! 🤗")
         employee_state[chat_id] = 'aguardando_transferencia'
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
-        unrecognized_count[chat_id] = 0  # Reseta contador
-        return
+        return 
         
     elif text == '2':
         send_message(chat_id, "🛒 Para pedido de compra, informe:\nNome do produto | Quantidade | Justificativa")
         employee_state[chat_id] = 'aguardando_pedido'
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
-        unrecognized_count[chat_id] = 0  # Reseta contador
-        return
+        user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
+        return 
         
     elif text == '3':
         send_message(chat_id, "⚠️ Liste os produtos em falta:\n \n> *Colocando o codigo reduzido*")
         employee_state[chat_id] = 'aguardando_faltantes'
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
-        unrecognized_count[chat_id] = 0  # Reseta contador
-        return
+        user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
+        return 
         
-    elif text == '4' and chat_id in administradores:
-        listar_colaboradores(chat_id)
+    elif text == "4":
+        send_message(chat_id, "⏳ Aguarde um momento, estou transferindo a conversa para nosso atendente...")
+        user_blocked[chat_id] = {'blocked_at': time(), 'apology_sent': False}
+        return 
         
     elif text == '5' and chat_id in administradores:
         send_message(chat_id, "Digite o Chat ID do colaborador a ser removido:")
         employee_state[chat_id] = 'aguardando_remocao'
+
+    elif text == '6' and chat_id in administradores:
+        listar_colaboradores(chat_id)
 
     elif text == '8' and chat_id in administradores:
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
@@ -342,13 +370,17 @@ def handle_employee_flow(chat_id, text, sender_name):
             del employee_state[chat_id]
             return True
         
-    elif text == "Obrigado": 
-        send_message(chat_id, "A Home Center Tupan agradece seu contato, ficaremos à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛")
+    elif text in RESPOSTAS_COLABORADOR: 
+        send_message(chat_id, RESPOSTAS_COLABORADOR[text])
+        return True
+
     else:
         menu = EMPLOYEE_MENU
         if chat_id in administradores:
             menu += "\n" + ADMIN_MENU
-        send_message(chat_id, f"❌ Opção inválida")
+        send_message(chat_id, f"❌ Opção inválida\n \nDigite uma opcão valida!")
+        send_message(chat_id, (EMPLOYEE_MENU))
+        return False
     
 
 def handle_employee_state(chat_id, text):
