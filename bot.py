@@ -1,6 +1,11 @@
 from time import sleep, time
+from datetime import datetime
 import requests
 import os 
+import json
+
+DATA_PROMOCOES = "06/03/2025"
+CONFIG_FILE = 'config.json'
 CONFIRMAR_DISPARO = 'confirmar_disparo'
 
 SERVER_URL = "http://localhost:3000"
@@ -10,7 +15,12 @@ feedback_pending = {}
 unrecognized_count = {}
 colaboradores = {}  
 administradores = {"558788149274@c.us"}  
-employee_state = {}  
+employee_state = {} 
+CONTATOS_ORCAMENTO = [
+    {"nome": "Bruno Simões", "telefone": "87 99946-2496"},
+    {"nome": "Leciano", "telefone": "87 99913-4861"},
+    {"nome": "Suellen", "telefone": "87 99983-9138"} 
+]
 
 
 PDF_PROMOCOES = os.path.join(os.path.dirname(__file__), 'assets', 'promocoes.pdf')
@@ -20,6 +30,31 @@ UNRECOGNIZED_RESPONSES = [
     "😐 *Ainda não tenho certeza em como posso te ajudar...*\n \nQue tal a gente fazer assim: vc pode escrever de novo aqui pra mim o que necessita , só que em outras palavras, pra ver se eu consigo entender dessa vez.\n \nAh, e também dá para digita *MENU* e escolhes uma das opcões",
     "😕 Que pena que não tô conseguindo te ajudar por aqui.\n \nTive uma ideia: você pode digita *3* e nosso atendente ja vai te atender.\n \nTenho certeza que ele ira solucionar sua duvida\n \nAh, e lembra que sempre dá pra dititar *MENU* e escolher um assunto, tá?👇"
 ]
+
+def salvar_config():
+    config = {
+        'data_promocoes': DATA_PROMOCOES, 'contatos_orcamento': CONTATOS_ORCAMENTO
+    }
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f)
+
+def carregar_config():
+    global DATA_PROMOCOES, CONTATOS_ORCAMENTO
+    
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            DATA_PROMOCOES = config.get('data_promocoes', DATA_PROMOCOES)
+            CONTATOS_ORCAMENTO = config.get('contatos_orcamento', CONTATOS_ORCAMENTO)
+            
+    except FileNotFoundError:
+        salvar_config()
+        
+    except Exception as e:
+        print(f"Erro ao carregar configurações: {str(e)}")
+        salvar_config()  
+
+carregar_config()
 
 def send_file(chat_id, file_path):
     try:
@@ -115,7 +150,6 @@ def handle_blocked_collaborator(chat_id):
         if not block_data['apology_sent']:
             user_blocked_1[chat_id]['apology_sent'] = True
         del user_blocked_1[chat_id]
-        send_message(chat_id, "🔓 Bloqueio de colaborador removido. Pode continuar operando.")
         return True  # Bloqueio expirado e removido
 
     print(f"Ignorando mensagem bloqueada de {chat_id}")
@@ -176,8 +210,8 @@ def on_message(message):
         "bom dia": f"👋 Bom dia {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "boa tarde": f"👋 Boa tarde {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "boa noite": f"👋 Boa noite {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
-        "1": f"Aqui está {sender_name}, o contato de alguns de nossos vendedores, eles tiraram suas dúvidas e passaram o orçamento do seu produto: 🤩\n \n📞Bruno Simões: 87 99946-2496 \n 📞 Leciano: 87 99913-4861\n 📞 Suellen: 87 99983-9138 \n \nFicarei à disposição para qualquer dúvida! qualquer coisa só chamar 🤗",
-        "2": f"🔥 Compre agora {sender_name}!\n \n📅 Promoção válida até *06/03/2025* ou enquanto durar o estoque.\n \nDigite *1* e solicite ja seu orçamento! 🤩",
+        "1": f"Aqui está {sender_name}, o contato de alguns de nossos vendedores, eles tiraram suas dúvidas e passaram o orçamento do seu produto: 🤩\n \n" + "\n".join([f"📞 {c['nome']}: {c['telefone']}" for c in CONTATOS_ORCAMENTO]) + "\n \nFicarei à disposição para qualquer dúvida! qualquer coisa só chamar 🤗",
+        "2": f"🔥 Compre agora {sender_name}!\n \n📅 Promoção válida até *{DATA_PROMOCOES}* ou enquanto durar o estoque.\n \nDigite *1* e solicite ja seu orçamento! 🤩",
         "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.",
         "4": f"{sender_name},  peço que envie o comprovante em *PDF* ou *IMAGEM*, onde apareça todas as informações do mesmo, juntamente com o *CPF* do titular da ficha.\nPara melhor identificação e agilidade no processo.\n \nEm caso de duvida, digite *3* e fale com o nosso atendente! 😉",
         "6": f"{sender_name}, digita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
@@ -272,7 +306,9 @@ Opções adicionais:
 5️⃣ - Remover colaborador (admin)
 6️⃣ - Listar colaboradores (admin)
 7️⃣ - Limpar todos os registros
-8️⃣ - Disparo em massa"""
+8️⃣ - Disparo em massa
+9️⃣ - Alterar data promoções
+🔟 - Gerenciar contatos de orçamento"""
 
 RESPOSTAS_COLABORADOR = {
     "obrigado": 'Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛', 
@@ -369,7 +405,61 @@ def handle_employee_flow(chat_id, text, sender_name):
             send_message(chat_id, "❌ Disparo cancelado")
             del employee_state[chat_id]
             return True
+
+    global DATA_PROMOCOES
+    if text == '9':
+        send_message(chat_id, "📅 Digite a nova data para as promoções (DD/MM/AAAA):")
+        employee_state[chat_id] = 'aguardando_data_promocao'
+        return True
         
+    elif employee_state.get(chat_id) == 'aguardando_data_promocao':
+        if validar_data(text):
+            DATA_PROMOCOES = text
+            salvar_config()
+            send_message(chat_id, f"✅ Data atualizada para: *{text}*")
+            send_message(chat_id, ADMIN_MENU)
+            del employee_state[chat_id]
+        else:
+            send_message(chat_id, "❌ Formato inválido! Use DD/MM/AAAA\nExemplo: 25/12/2024")
+        return True
+
+    if text == '10':
+        mostrar_menu_contatos(chat_id)
+        return True
+        
+    elif text.startswith('editar_'):
+        index = int(text.split('_')[1])
+        employee_state[chat_id] = {'acao': 'editando_contato', 'index': index}
+        send_message(chat_id, "Digite o novo nome e telefone (Formato: Nome | Telefone):")
+        return True
+        
+    elif text == 'novo_contato':
+        employee_state[chat_id] = {'acao': 'novo_contato'}
+        send_message(chat_id, "Digite o nome e telefone do novo contato (Formato: Nome | Telefone):")
+        return True
+        
+    elif employee_state.get(chat_id, {}).get('acao') in ['editando_contato', 'novo_contato']:
+        processar_edicao_contato(chat_id, text)
+        return True
+    
+    elif text.startswith('remover_'):
+        try:
+            index = int(text.split('_')[1])
+            if 0 <= index < len(CONTATOS_ORCAMENTO):
+                del CONTATOS_ORCAMENTO[index]
+                salvar_config()
+                send_message(chat_id, "✅ Contato removido com sucesso!")
+                mostrar_menu_contatos(chat_id)
+            else:
+                send_message(chat_id, "❌ Índice inválido!")
+        except:
+            send_message(chat_id, "❌ Formato incorreto! Use: remover_0")
+        return True
+        
+    elif employee_state.get(chat_id, {}).get('acao') in ['editando_contato', 'novo_contato']:
+        processar_edicao_contato(chat_id, text)
+        return True
+
     elif text in RESPOSTAS_COLABORADOR: 
         send_message(chat_id, RESPOSTAS_COLABORADOR[text])
         return True
@@ -423,6 +513,51 @@ def handle_admin_commands(chat_id, text):
         
     send_message(chat_id, ADMIN_MENU)
 
+def validar_data(data_str):
+    try:
+        datetime.strptime(data_str, '%d/%m/%Y')
+        return True
+    except ValueError:
+        return False
+
+def mostrar_menu_contatos(chat_id):
+    mensagem = "📚 *Contatos para Orçamento*\n\n"
+    for i, contato in enumerate(CONTATOS_ORCAMENTO, 1):
+        mensagem += f"{i}. {contato['nome']} - {contato['telefone']}\n"
+    
+    mensagem += "\nComandos:\n"
+    mensagem += "- Digite *editar_X* para editar o contato X\n"
+    mensagem += "- Digite *novo_contato* para adicionar\n"
+    mensagem += "- Digite *remover_X* para excluir o contato X\n"
+    mensagem += "- Digite *0* para voltar"
+    
+    send_message(chat_id, mensagem)
+
+def processar_edicao_contato(chat_id, text):
+    estado = employee_state[chat_id]
+    
+    try:
+        nome, telefone = [parte.strip() for parte in text.split('|', 1)]
+        
+        # Validação básica
+        if not nome or not telefone:
+            raise ValueError
+            
+        if estado['acao'] == 'editando_contato':
+            index = estado['index']
+            CONTATOS_ORCAMENTO[index] = {'nome': nome, 'telefone': telefone}
+            
+        elif estado['acao'] == 'novo_contato':
+            CONTATOS_ORCAMENTO.append({'nome': nome, 'telefone': telefone})
+            
+        salvar_config()
+        send_message(chat_id, "✅ Contato atualizado com sucesso!")
+        mostrar_menu_contatos(chat_id)
+        
+    except Exception as e:
+        send_message(chat_id, "❌ Formato inválido! Use: *Nome | Telefone*")
+        
+    del employee_state[chat_id]
 
 def main():
     print("Bot iniciado. Aguardando mensagens...")
