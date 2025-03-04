@@ -7,15 +7,18 @@ import json
 DATA_PROMOCOES = "06/03/2025"
 CONFIG_FILE = 'config.json'
 CONFIRMAR_DISPARO = 'confirmar_disparo'
-
+CONFIRMAR_DISPARO_MENSAGEM = 'confirmar_disparo_mensagem'
+CONFIRMAR_DISPARO_MENSAGEM_IMAGEM = "confirmar_disparo_mesagem_imagem"
 SERVER_URL = "http://localhost:3000"
+
 user_blocked = {}
 user_blocked_1 = {}
 feedback_pending = {}
 unrecognized_count = {}
 colaboradores = {}  
-administradores = {"558788149274@c.us"}  
-employee_state = {} 
+administradores = {"558788149274@c.us"} 
+employee_state = {}
+
 CONTATOS_ORCAMENTO = [
     {"nome": "Bruno Simões", "telefone": "87 99946-2496"},
     {"nome": "Leciano", "telefone": "87 99913-4861"},
@@ -212,7 +215,7 @@ def on_message(message):
         "boa noite": f"👋 Boa noite {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "1": f"Aqui está {sender_name}, o contato de alguns de nossos vendedores, eles tiraram suas dúvidas e passaram o orçamento do seu produto: 🤩\n \n" + "\n".join([f"📞 {c['nome']}: {c['telefone']}" for c in CONTATOS_ORCAMENTO]) + "\n \nFicarei à disposição para qualquer dúvida! qualquer coisa só chamar 🤗",
         "2": f"🔥 Compre agora {sender_name}!\n \n📅 Promoção válida até *{DATA_PROMOCOES}* ou enquanto durar o estoque.\n \nDigite *1* e solicite ja seu orçamento! 🤩",
-        "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.",
+        "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.\n \n*Lembrando que nosso atendimento funciona de segunda a sexta das 09h ate as 17h e aos sabados das 9h ate as 13h*",
         "4": f"{sender_name},  peço que envie o comprovante em *PDF* ou *IMAGEM*, onde apareça todas as informações do mesmo, juntamente com o *CPF* do titular da ficha.\nPara melhor identificação e agilidade no processo.\n \nEm caso de duvida, digite *3* e fale com o nosso atendente! 😉",
         "6": f"{sender_name}, digita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "5": "Seu feedback e muito importante para nós. 🥰\n \nDeixe aqui seu comentario, como foi sua experiencia de compra aqui na Tupan, e se achou todos os produtos que estava procurando. 🌟",
@@ -306,9 +309,11 @@ Opções adicionais:
 5️⃣ - Remover colaborador (admin)
 6️⃣ - Listar colaboradores (admin)
 7️⃣ - Limpar todos os registros
-8️⃣ - Disparo em massa
+8️⃣ - Disparo em massa com PDF
 9️⃣ - Alterar data promoções
-🔟 - Gerenciar contatos de orçamento"""
+🔟 - Gerenciar contatos de orçamento
+1️⃣1️⃣ - Disparo em massa de mensagem
+1️⃣2️⃣ - Disparo em massa Imagem/Video"""
 
 RESPOSTAS_COLABORADOR = {
     "obrigado": 'Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛', 
@@ -330,16 +335,15 @@ def on_message_colaborador(message):
 
 
 def handle_employee_flow(chat_id, text, sender_name):
+    
     if text == '0':
         del colaboradores[chat_id]
-        # Limpeza de estados
         if chat_id in employee_state:
             del employee_state[chat_id]
         if chat_id in user_blocked_1:
             del user_blocked_1[chat_id]
             
         send_message(chat_id, "🚪 Modo colaborador desativado!\n \n⚠️ *ATENCÃO* ⚠️\n \n> *AO SAIR DO MODO COLABORADOR, VOCE DEVERA EFETUAR LOGIN NOVAMENTE COM SUA MATRICULA PARA ACESSAR AS OPCÕES!*")
-        # Envia o menu do cliente corretamente
         send_message(chat_id, on_message().format(sender_name=sender_name))
         return True
 
@@ -384,11 +388,11 @@ def handle_employee_flow(chat_id, text, sender_name):
     
     # Adicione este novo caso para tratar a confirmação
     elif employee_state.get(chat_id) == CONFIRMAR_DISPARO:
-        from envio import run_envio
+        from envio import run_envio_PDF
         if text == 'confirmar':
             try:
                 send_message(chat_id, "📢 Iniciando disparo em massa...")
-                resultado = run_envio()  # Executa o disparo
+                resultado = run_envio_PDF()  
                 
                 if resultado:
                     send_message(chat_id, f"✅ Disparo concluído!\nMensagens enviadas: {resultado}")
@@ -402,7 +406,7 @@ def handle_employee_flow(chat_id, text, sender_name):
             return True
         
         else:
-            send_message(chat_id, "❌ Disparo cancelado")
+            send_message(chat_id, "❌ Disparo cancelado ")
             del employee_state[chat_id]
             return True
 
@@ -429,16 +433,18 @@ def handle_employee_flow(chat_id, text, sender_name):
         
     elif text.startswith('editar_'):
         index = int(text.split('_')[1])
+    # Defina o estado como um DICIONÁRIO, não string
         employee_state[chat_id] = {'acao': 'editando_contato', 'index': index}
         send_message(chat_id, "Digite o novo nome e telefone (Formato: Nome | Telefone):")
         return True
         
     elif text == 'novo_contato':
-        employee_state[chat_id] = {'acao': 'novo_contato'}
+        employee_state[chat_id] = {'acao': 'novo_contato'}  # Dicionário
         send_message(chat_id, "Digite o nome e telefone do novo contato (Formato: Nome | Telefone):")
         return True
         
-    elif employee_state.get(chat_id, {}).get('acao') in ['editando_contato', 'novo_contato']:
+    current_state = employee_state.get(chat_id, {})
+    if isinstance(current_state, dict) and current_state.get('acao') in ['editando_contato', 'novo_contato']:
         processar_edicao_contato(chat_id, text)
         return True
     
@@ -456,10 +462,76 @@ def handle_employee_flow(chat_id, text, sender_name):
             send_message(chat_id, "❌ Formato incorreto! Use: remover_0")
         return True
         
-    elif employee_state.get(chat_id, {}).get('acao') in ['editando_contato', 'novo_contato']:
+    current_state = employee_state.get(chat_id, {})
+    if isinstance(current_state, dict) and current_state.get('acao') in ['editando_contato', 'novo_contato']:
         processar_edicao_contato(chat_id, text)
         return True
+    
+    elif text == '11' and chat_id in administradores:
+        send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
+        employee_state[chat_id] = CONFIRMAR_DISPARO_MENSAGEM
+        print(type(employee_state))
+        return True
 
+    # Adicione este novo caso para tratar a confirmação
+    elif employee_state.get(chat_id) == CONFIRMAR_DISPARO_MENSAGEM:
+        from envio import run_envio_mensegem
+        print(f"[DEBUG] Estado atual: {employee_state.get(chat_id)} | Tipo: {type(employee_state.get(chat_id))}")
+        if text.lower() == "confirmar":
+            print(type(employee_state))
+            try:
+                send_message(chat_id, "📢 Iniciando disparo em massa...")
+                resultado = run_envio_mensegem()  
+                
+                if resultado:
+                    send_message(chat_id, f"✅ Disparo concluído!\nMensagens enviadas: {resultado}")
+                else:
+                    send_message(chat_id, "❌ Nenhuma mensagem enviada. Verifique o arquivo de destinatários.")
+                    
+            except Exception as e:
+                send_message(chat_id, f"⚠️ Erro no disparo: {str(e)}")
+            
+            del employee_state[chat_id]
+            return True
+        
+        else:
+            send_message(chat_id, "❌ Disparo cancelado ")
+            del employee_state[chat_id]
+            return True
+
+    elif text == '12' and chat_id in administradores:
+        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n>LEMBRE DE MODIVICAR A PLANILHA *ENVIO*, DE ACORDO COM O QUE VC ESTA DISPARANDO\n \n>AS IMAGENS E VIDEOS DEVEM ESTA NA PASTA ASSENT, NA SUBPASTA PROMOCOES")
+        send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
+        employee_state[chat_id] = CONFIRMAR_DISPARO_MENSAGEM_IMAGEM
+        print(type(employee_state))
+        return True
+
+    # Adicione este novo caso para tratar a confirmação
+    elif employee_state.get(chat_id) == CONFIRMAR_DISPARO_MENSAGEM_IMAGEM:
+        from envio import run_envio_midia
+        print(f"[DEBUG] Estado atual: {employee_state.get(chat_id)} | Tipo: {type(employee_state.get(chat_id))}")
+        if text.lower() == "confirmar":
+            print(type(employee_state))
+            try:
+                send_message(chat_id, "📢 Iniciando disparo em massa...")
+                resultado = run_envio_midia()  
+                
+                if resultado:
+                    send_message(chat_id, f"✅ Disparo concluído!\nMensagens enviadas: {resultado}")
+                else:
+                    send_message(chat_id, "❌ Nenhuma mensagem enviada. Verifique o arquivo de destinatários.")
+                    
+            except Exception as e:
+                send_message(chat_id, f"⚠️ Erro no disparo: {str(e)}")
+            
+            del employee_state[chat_id]
+            return True
+        
+        else:
+            send_message(chat_id, "❌ Disparo cancelado ")
+            del employee_state[chat_id]
+            return True
+  
     elif text in RESPOSTAS_COLABORADOR: 
         send_message(chat_id, RESPOSTAS_COLABORADOR[text])
         return True

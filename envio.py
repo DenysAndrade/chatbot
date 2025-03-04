@@ -2,6 +2,7 @@ import pandas as pd
 import requests
 import time
 import re
+import os
 
 
 SERVER_URL = "http://localhost:3000"
@@ -36,62 +37,241 @@ def verificar_numero(chat_id):
         print(f"Erro de conexão: {str(e)}")
         return False, None
 
-# Carregar dados ANTES do loop principal
-try:
-    df = pd.read_excel(EXCEL_PATH)
-    print("\n✅ Planilha carregada com sucesso!")
-    print("Amostra dos dados:")
-    print(df.head(3))
-except Exception as e:
-    print(f"\n❌ ERRO CRÍTICO: Falha ao ler Excel\n{str(e)}")
-    exit()
+def verificar_interrupcao():
 
-# Processamento principal
-for index, row in df.iterrows():
+    return os.path.exists("interromper.txt")
+
+def run_envio_PDF():
     try:
-        numero_original = row['Número']
-        pessoa = row['Pessoa']
-        mensagem = row['Mensagem']
+        if verificar_interrupcao():
+            os.remove("interromper.txt")
+            
+        print("\n📊 Carregando planilha...")
+        df = pd.read_excel(EXCEL_PATH)
+        total_contatos = len(df)
+        enviados_com_sucesso = 0
         
-        # Formatar número
-        chat_id = formatar_numero(numero_original)
-        if not chat_id:
-            print(f"⚠️ Número inválido: {numero_original}")
-            continue
-            
-        # Verificar registro
-        valido, numero_formatado = verificar_numero(chat_id)
-        if not valido:
-            print(f"🚫 Número não registrado: {numero_formatado}")
-            continue
-            
-        # Enviar mensagem
-        response = requests.post(
-            f"{SERVER_URL}/send-message",
-            json={"chatId": chat_id, "message": f"🎉 É amanhã, {pessoa}! {mensagem} 🔥\n \n✨ A maior e verdadeira *FOLIA DE OFERTAS* da região está no ar! ✨\n \n✅ Descontos imperdíveis!\n✅ Frete grátis no raio de 120kM para você economizar ainda mais!\n✅ Varios produtos com preços que você só encontra aqui!\n \n⏳ Não deixe pra depois, os estoques são limitados e as ofertas são válidas do dia *21/02/2025* até *06/03/2025* viu!\nDigite *1* e faça ja seu orçamento! 😁"},
-            timeout=30
-        )
+        print(f"✅ Planilha carregada | Total de contatos: {total_contatos}")
+        print("-----------------------------------------")
         
-        if response.status_code != 200:
-            print(f"❌ Falha no envio: {response.text}")
-            continue
+        for index, row in df.iterrows():
+            if verificar_interrupcao():
+                print("\n⏹️ Disparo interrompido pelo usuário!")
+                return "Operação interrompida manualmente!"
             
-        # Enviar PDF
-        response_pdf = requests.post(
-            f"{SERVER_URL}/send-pdf",
-            json={"chatId": chat_id},
-            timeout=30
-        )
+            numero = row['Número']
+            pessoa = row['Pessoa']
+            mensagem = row['Mensagem']
+            
+            try:
+                print(f"\n📤 Processando {index+1}/{total_contatos}: {pessoa}")
+                
+                # Formatação do número
+                chat_id = formatar_numero(numero)
+                if not chat_id:
+                    print(f"⚠️ Número inválido: {numero}")
+                    continue
+                
+                # Envio da mensagem principal
+                resposta_mensagem = requests.post(
+                    f"{SERVER_URL}/send-message",
+                    json={
+                        "chatId": chat_id,
+                        "message": (
+                            f"Oii {pessoa}, {mensagem}\n\n"
+                            "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"
+                            "✅ Descontos imperdíveis!\n"
+                            "✅ Frete grátis no raio de 120kM\n"
+                            "✅ Preços exclusivos!\n\n"
+                            "⏳ Melhor hora para comprar!\n"
+                            "Digite *1* para orçamento! 😁"
+                        )
+                    },
+                    timeout=30
+                )
+                
+                if resposta_mensagem.status_code != 200:
+                    print(f"❌ Falha no envio: {resposta_mensagem.text}")
+                    continue
+                
+                # Envio do PDF
+                resposta_pdf = requests.post(
+                    f"{SERVER_URL}/send-pdf",
+                    json={"chatId": chat_id},
+                    timeout=30
+                )
+                
+                if resposta_pdf.status_code == 200:
+                    enviados_com_sucesso += 1
+                    print(f"✅ Enviado para {pessoa}")
+                else:
+                    print(f"⚠️ PDF não enviado: {resposta_pdf.text}")
+                    
+            except Exception as e:
+                print(f"🔥 Erro crítico: {str(e)}")
+                
+            finally:
+                time.sleep(DELAY_ENTRE_CONTATOS)
         
-        if response_pdf.status_code == 200:
-            print(f"✅ Envio completo para {pessoa}")
-        else:
-            print(f"⚠️ PDF não enviado: {response_pdf.text}")
-            
+        print("\n-----------------------------------------")
+        print(f"🎉 Disparo concluído! | Sucessos: {enviados_com_sucesso}/{total_contatos}")
+        return f"Total de mensagens enviadas: {enviados_com_sucesso}"
+        
     except Exception as e:
-        print(f"🔥 Erro no contato {numero_original}: {str(e)}")
-    
-    finally:
-        time.sleep(DELAY_ENTRE_CONTATOS)
+        print(f"❌ Erro geral: {str(e)}")
+        return f"Erro no disparo: {str(e)}"
 
-print("\n🎉 Processo finalizado com sucesso!")
+def run_envio_mensegem():
+    try:
+        if verificar_interrupcao():
+            os.remove("interromper.txt")
+            
+        print("\n📊 Carregando planilha...")
+        df = pd.read_excel(EXCEL_PATH)
+        total_contatos = len(df)
+        enviados_com_sucesso = 0
+        
+        print(f"✅ Planilha carregada | Total de contatos: {total_contatos}")
+        print("-----------------------------------------")
+        
+        for index, row in df.iterrows():
+            if verificar_interrupcao():
+                print("\n⏹️ Disparo interrompido pelo usuário!")
+                return "Operação interrompida manualmente!"
+            
+            numero = row['Número']
+            pessoa = row['Pessoa']
+            mensagem = row['Mensagem']
+            
+            try:
+                print(f"\n📤 Processando {index+1}/{total_contatos}: {pessoa}")
+                
+                # Formatação do número
+                chat_id = formatar_numero(numero)
+                if not chat_id:
+                    print(f"⚠️ Número inválido: {numero}")
+                    continue
+                
+                # Envio da mensagem principal
+                resposta_mensagem = requests.post(
+                    f"{SERVER_URL}/send-message",
+                    json={
+                        "chatId": chat_id,
+                        "message": (
+                            f"Oii {pessoa}, {mensagem}\n\n"
+                            "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"
+                            "✅ Descontos imperdíveis!\n"
+                            "✅ Frete grátis no raio de 120kM\n"
+                            "✅ Preços exclusivos!\n\n"
+                            "⏳ Melhor hora para comprar!\n"
+                            "Digite *1* para orçamento! 😁"
+                        )
+                    },
+                    timeout=30
+                )
+
+            except Exception as e:
+                print(f"🔥 Erro crítico: {str(e)}")
+                
+            finally:
+                time.sleep(DELAY_ENTRE_CONTATOS)
+                
+                if resposta_mensagem.status_code != 200:
+                    print(f"❌ Falha no envio: {resposta_mensagem.text}")
+                    continue
+
+    except Exception as e:
+        print(f"❌ Erro geral: {str(e)}")
+        return f"Erro no disparo: {str(e)}"
+    
+def run_envio_midia():
+    try:
+        if verificar_interrupcao():
+            os.remove("interromper.txt")
+            
+        print("\n📊 Carregando planilha...")
+        df = pd.read_excel(EXCEL_PATH)
+        total_contatos = len(df)
+        enviados_com_sucesso = 0
+        
+        print(f"✅ Planilha carregada | Total de contatos: {total_contatos}")
+        print("-----------------------------------------")
+        
+        for index, row in df.iterrows():
+            if verificar_interrupcao():
+                print("\n⏹️ Disparo interrompido pelo usuário!")
+                return "Operação interrompida manualmente!"
+            
+            numero = row['Número']
+            pessoa = row['Pessoa']
+            mensagem = row['Mensagem']
+            caminho_midia = row['CaminhoMidia']
+            tipo_midia = row['TipoMidia']
+            descricao = row['Descricao']
+            
+            try:
+                print(f"\n📤 Processando {index+1}/{total_contatos}: {pessoa}")
+                
+                # Formatação do número
+                chat_id = formatar_numero(numero)
+                if not chat_id:
+                    print(f"⚠️ Número inválido: {numero}")
+                    continue
+                
+                # Envio da mensagem principal
+                try:
+                    resposta_mensagem = requests.post(
+                        f"{SERVER_URL}/send-message",
+                        json={
+                            "chatId": chat_id,
+                            "message": f"Oii {pessoa}, {mensagem}"
+                        },
+                        timeout=30
+                    )
+                    resposta_mensagem.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    print(f"❌ Falha no envio da mensagem: {str(e)}")
+                    continue
+                
+                # Determina o endpoint
+                endpoint = '/send-image' if tipo_midia.lower() == 'imagem' else '/send-video'
+                
+                # Envio da mídia com tratamento aprimorado
+                try:
+                    resposta_midia = requests.post(
+                        f"{SERVER_URL}{endpoint}",
+                        json={
+                            "chatId": chat_id,
+                            "filePath": caminho_midia,
+                            "caption": descricao
+                        },
+                        timeout=60
+                    )
+                    resposta_midia.raise_for_status()
+                    enviados_com_sucesso += 1
+                    print(f"✅ Mídia enviada para {pessoa}")
+                    
+                except requests.exceptions.RequestException as e:
+                    print(f"⚠️ Falha no envio da mídia: {str(e)}")
+                    if e.response:
+                        print(f"Detalhes: {e.response.text}")
+                    
+            except Exception as e:
+                print(f"🔥 Erro crítico: {str(e)}")
+                
+            finally:
+                time.sleep(DELAY_ENTRE_CONTATOS)
+        
+        print("\n-----------------------------------------")
+        print(f"🎉 Disparo concluído! | Sucessos: {enviados_com_sucesso}/{total_contatos}")
+        return f"Total de mídias enviadas: {enviados_com_sucesso}"
+        
+    except Exception as e:
+        print(f"❌ Erro geral: {str(e)}")
+        return f"Erro no disparo: {str(e)}"
+    
+if __name__ == "__main__":
+    resultado = run_envio_PDF()
+    resultado = run_envio_mensegem()
+    resultado = run_envio_midia()
+    print(resultado)
