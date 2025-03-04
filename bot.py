@@ -1,4 +1,5 @@
 from time import sleep, time
+from config import Config
 from datetime import datetime
 import requests
 import os 
@@ -7,6 +8,7 @@ import json
 DATA_PROMOCOES = "06/03/2025"
 CONFIG_FILE = 'config.json'
 CONFIRMAR_DISPARO = 'confirmar_disparo'
+EDITANDO_MENSAGENS = "editando_mensagens"
 CONFIRMAR_DISPARO_MENSAGEM = 'confirmar_disparo_mensagem'
 CONFIRMAR_DISPARO_MENSAGEM_IMAGEM = "confirmar_disparo_mesagem_imagem"
 SERVER_URL = "http://localhost:3000"
@@ -334,7 +336,15 @@ def on_message_colaborador(message):
             return
 
 
+def mostrar_msg_personalizada(chat_id, TEXTO_MENSAGEM):
+    mensagem = "📝 Mensagens atuais:\n"
+    for key, value in Config.TEXTO_MENSAGEM.items():
+        mensagem += f"{key}: {value}\n"
+    print(mensagem)
+
 def handle_employee_flow(chat_id, text, sender_name):
+    global employee_state
+    global employee_state, TEXTO_MENSAGEM
     
     if text == '0':
         del colaboradores[chat_id]
@@ -381,13 +391,50 @@ def handle_employee_flow(chat_id, text, sender_name):
     elif text == '6' and chat_id in administradores:
         listar_colaboradores(chat_id)
 
+    
+    if text == '13' and chat_id in administradores:
+        from config import Config
+        # Mostra as mensagens atuais
+        mostrar_msg_personalizada(chat_id)
+        return True
+        
+    elif text.startswith('editar_') and chat_id in administradores:
+        try:
+            # Extrai o índice da mensagem a ser editada
+            index = int(text.split('_')[1])
+            employee_state[chat_id] = {'acao': EDITANDO_MENSAGENS, 'index': index}
+            send_message(chat_id, "Digite as novas mensagens (Formato: ms1 | ms2 | ms3 | ms4 | ms5 | ms6):")
+            return True
+        except (IndexError, ValueError):
+            send_message(chat_id, "⚠️ Formato inválido. Use: editar_<índice>")
+            return True
+    
+    elif employee_state.get(chat_id, {}).get('acao') == EDITANDO_MENSAGENS:
+        try:
+            # Processa a edição das mensagens
+            index = employee_state[chat_id]['index']
+            novas_mensagens = text.split("|")
+            
+            # Atualiza o dicionário de mensagens
+            for i, msg in enumerate(novas_mensagens):
+                chave = f"ms{index + i}"
+                if chave in TEXTO_MENSAGEM:
+                    TEXTO_MENSAGEM[chave] = msg.strip() + "\n"
+            
+            send_message(chat_id, "✅ Mensagens atualizadas com sucesso!")
+            del employee_state[chat_id]  # Limpa o estado
+            return True
+        except Exception as e:
+            send_message(chat_id, f"⚠️ Erro ao editar mensagens: {str(e)}")
+            return True
+
     elif text == '8' and chat_id in administradores:
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
-        employee_state[chat_id] = CONFIRMAR_DISPARO
+        employee_state[chat_id] = {'acao': CONFIRMAR_DISPARO}
         return True
     
     # Adicione este novo caso para tratar a confirmação
-    elif employee_state.get(chat_id) == CONFIRMAR_DISPARO:
+    elif employee_state.get(chat_id, {}).get('acao') == CONFIRMAR_DISPARO:
         from envio import run_envio_PDF
         if text == 'confirmar':
             try:
@@ -531,19 +578,6 @@ def handle_employee_flow(chat_id, text, sender_name):
             send_message(chat_id, "❌ Disparo cancelado ")
             del employee_state[chat_id]
             return True
-  
-    elif text in RESPOSTAS_COLABORADOR: 
-        send_message(chat_id, RESPOSTAS_COLABORADOR[text])
-        return True
-
-    else:
-        menu = EMPLOYEE_MENU
-        if chat_id in administradores:
-            menu += "\n" + ADMIN_MENU
-        send_message(chat_id, f"❌ Opção inválida\n \nDigite uma opcão valida!")
-        send_message(chat_id, (EMPLOYEE_MENU))
-        return False
-    
 
 def handle_employee_state(chat_id, text):
     estado = employee_state[chat_id]
@@ -630,6 +664,7 @@ def processar_edicao_contato(chat_id, text):
         send_message(chat_id, "❌ Formato inválido! Use: *Nome | Telefone*")
         
     del employee_state[chat_id]
+
 
 def main():
     print("Bot iniciado. Aguardando mensagens...")
