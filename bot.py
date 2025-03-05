@@ -1,5 +1,5 @@
 from time import sleep, time
-from config import Config
+
 from datetime import datetime
 import requests
 import os 
@@ -12,6 +12,7 @@ EDITANDO_MENSAGENS = "editando_mensagens"
 CONFIRMAR_DISPARO_MENSAGEM = 'confirmar_disparo_mensagem'
 CONFIRMAR_DISPARO_MENSAGEM_IMAGEM = "confirmar_disparo_mesagem_imagem"
 SERVER_URL = "http://localhost:3000"
+ARQUIVO_JSON = "mensagens.json"
 
 user_blocked = {}
 user_blocked_1 = {}
@@ -26,6 +27,14 @@ CONTATOS_ORCAMENTO = [
     {"nome": "Leciano", "telefone": "87 99913-4861"},
     {"nome": "Suellen", "telefone": "87 99983-9138"} 
 ]
+TEXTO_MENSAGEM = [
+        {"ms1": "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"},
+        {"ms2": "✅ Descontos imperdíveis!\n"},
+        {"ms3": "✅ Frete grátis no raio de 120kM\n"},
+        {"ms4": "✅ Preços exclusivos!\n\n"},
+        {"ms5": "⏳ Melhor hora para comprar!\n"},
+        {"ms6": "Digite *1* para orçamento! 😁"}
+]
 
 
 PDF_PROMOCOES = os.path.join(os.path.dirname(__file__), 'assets', 'promocoes.pdf')
@@ -35,6 +44,53 @@ UNRECOGNIZED_RESPONSES = [
     "😐 *Ainda não tenho certeza em como posso te ajudar...*\n \nQue tal a gente fazer assim: vc pode escrever de novo aqui pra mim o que necessita , só que em outras palavras, pra ver se eu consigo entender dessa vez.\n \nAh, e também dá para digita *MENU* e escolhes uma das opcões",
     "😕 Que pena que não tô conseguindo te ajudar por aqui.\n \nTive uma ideia: você pode digita *3* e nosso atendente ja vai te atender.\n \nTenho certeza que ele ira solucionar sua duvida\n \nAh, e lembra que sempre dá pra dititar *MENU* e escolher um assunto, tá?👇"
 ]
+
+def carregar_mensagens():
+    if os.path.exists(ARQUIVO_JSON):
+        try:
+            with open(ARQUIVO_JSON, "r", encoding="utf-8") as arquivo:
+                dados = json.load(arquivo)
+                # Verifica se os dados são uma lista
+                if isinstance(dados, list):
+                    return dados
+                else:
+                    print("⚠️ O arquivo JSON não contém uma lista. Usando lista padrão.")
+                    return [
+                        {"ms1": "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"},
+                        {"ms2": "✅ Descontos imperdíveis!\n"},
+                        {"ms3": "✅ Frete grátis no raio de 120kM\n"},
+                        {"ms4": "✅ Preços exclusivos!\n\n"},
+                        {"ms5": "⏳ Melhor hora para comprar!\n"},
+                        {"ms6": "Digite *1* para orçamento! 😁"}
+                    ]
+        except json.JSONDecodeError:
+            print("⚠️ Erro ao decodificar o arquivo JSON. Usando lista padrão.")
+            return [
+                {"ms1": "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"},
+                {"ms2": "✅ Descontos imperdíveis!\n"},
+                {"ms3": "✅ Frete grátis no raio de 120kM\n"},
+                {"ms4": "✅ Preços exclusivos!\n\n"},
+                {"ms5": "⏳ Melhor hora para comprar!\n"},
+                {"ms6": "Digite *1* para orçamento! 😁"}
+            ]
+    else:
+        # Retorna a lista padrão de mensagens se o arquivo não existir
+        return [
+            {"ms1": "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"},
+            {"ms2": "✅ Descontos imperdíveis!\n"},
+            {"ms3": "✅ Frete grátis no raio de 120kM\n"},
+            {"ms4": "✅ Preços exclusivos!\n\n"},
+            {"ms5": "⏳ Melhor hora para comprar!\n"},
+            {"ms6": "Digite *1* para orçamento! 😁"}
+        ]
+
+
+def salvar_mensagens(TEXTO_MENSAGEM):
+    with open(ARQUIVO_JSON, "w", encoding="utf-8") as arquivo:
+        json.dump(TEXTO_MENSAGEM, arquivo, ensure_ascii=False, indent=4)
+
+
+TEXTO_MENSAGEM = carregar_mensagens()
 
 def salvar_config():
     config = {
@@ -336,15 +392,16 @@ def on_message_colaborador(message):
             return
 
 
-def mostrar_msg_personalizada(chat_id, TEXTO_MENSAGEM):
+
+def mostrar_msg_personalizada(TEXTO_MENSAGEM):
     mensagem = "📝 Mensagens atuais:\n"
-    for key, value in Config.TEXTO_MENSAGEM.items():
-        mensagem += f"{key}: {value}\n"
-    print(mensagem)
+    for item in TEXTO_MENSAGEM:
+        for key, value in item.items():
+            mensagem += f"{key}: {value}\n"
+    return "".join([list(item.values())[0] for item in TEXTO_MENSAGEM])
 
 def handle_employee_flow(chat_id, text, sender_name):
     global employee_state
-    global employee_state, TEXTO_MENSAGEM
     
     if text == '0':
         del colaboradores[chat_id]
@@ -391,41 +448,51 @@ def handle_employee_flow(chat_id, text, sender_name):
     elif text == '6' and chat_id in administradores:
         listar_colaboradores(chat_id)
 
-    
+    global TEXTO_MENSAGEM
     if text == '13' and chat_id in administradores:
-        from config import Config
         # Mostra as mensagens atuais
-        mostrar_msg_personalizada(chat_id)
+        send_message(chat_id, mostrar_msg_personalizada(TEXTO_MENSAGEM))
         return True
         
     elif text.startswith('editar_') and chat_id in administradores:
         try:
             # Extrai o índice da mensagem a ser editada
-            index = int(text.split('_')[1])
-            employee_state[chat_id] = {'acao': EDITANDO_MENSAGENS, 'index': index}
-            send_message(chat_id, "Digite as novas mensagens (Formato: ms1 | ms2 | ms3 | ms4 | ms5 | ms6):")
+            index = int(text.split('_')[1]) - 1  # Subtrai 1 para usar como índice da lista
+            if index < 0 or index >= len(TEXTO_MENSAGEM):
+                send_message(chat_id, "⚠️ Índice inválido. Use um número entre 1 e 6.")
+                return True
+            
+            employee_state[chat_id] = {'acao': 'EDITANDO_MENSAGENS', 'index': index}
+            send_message(chat_id, f"Digite a nova mensagem para a posição {index + 1}:")
             return True
         except (IndexError, ValueError):
             send_message(chat_id, "⚠️ Formato inválido. Use: editar_<índice>")
             return True
     
-    elif employee_state.get(chat_id, {}).get('acao') == EDITANDO_MENSAGENS:
+    elif isinstance(employee_state, dict) and employee_state.get(chat_id, {}).get('acao') == 'EDITANDO_MENSAGENS':
         try:
-            # Processa a edição das mensagens
+            # Processa a edição da mensagem
             index = employee_state[chat_id]['index']
-            novas_mensagens = text.split("|")
+            nova_mensagem = text.replace("\\n", "\n")  # Substitui \\n por \n
             
             # Atualiza o dicionário de mensagens
-            for i, msg in enumerate(novas_mensagens):
-                chave = f"ms{index + i}"
-                if chave in TEXTO_MENSAGEM:
-                    TEXTO_MENSAGEM[chave] = msg.strip() + "\n"
+            print("Antes da edição:", TEXTO_MENSAGEM)
+            chave = f"ms{index + 1}"  # Gera a chave correta (ms1, ms2, etc.)
+            for item in TEXTO_MENSAGEM:
+                if chave in item:
+                    # Preserva a formatação original da mensagem
+                    item[chave] = nova_mensagem  # Mantém a formatação exatamente como foi enviada
+                    break
+            print("Após a edição:", TEXTO_MENSAGEM)
             
-            send_message(chat_id, "✅ Mensagens atualizadas com sucesso!")
+            # Salva as alterações no arquivo JSON
+            salvar_mensagens(TEXTO_MENSAGEM)
+            
+            send_message(chat_id, "✅ Mensagem atualizada com sucesso!")
             del employee_state[chat_id]  # Limpa o estado
             return True
         except Exception as e:
-            send_message(chat_id, f"⚠️ Erro ao editar mensagens: {str(e)}")
+            send_message(chat_id, f"⚠️ Erro ao editar mensagem: {str(e)}")
             return True
 
     elif text == '8' and chat_id in administradores:
@@ -439,7 +506,7 @@ def handle_employee_flow(chat_id, text, sender_name):
         if text == 'confirmar':
             try:
                 send_message(chat_id, "📢 Iniciando disparo em massa...")
-                resultado = run_envio_PDF()  
+                resultado = run_envio_PDF(TEXTO_MENSAGEM)  
                 
                 if resultado:
                     send_message(chat_id, f"✅ Disparo concluído!\nMensagens enviadas: {resultado}")
@@ -528,7 +595,7 @@ def handle_employee_flow(chat_id, text, sender_name):
             print(type(employee_state))
             try:
                 send_message(chat_id, "📢 Iniciando disparo em massa...")
-                resultado = run_envio_mensegem()  
+                resultado = run_envio_mensegem(TEXTO_MENSAGEM)  
                 
                 if resultado:
                     send_message(chat_id, f"✅ Disparo concluído!\nMensagens enviadas: {resultado}")

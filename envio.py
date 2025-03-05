@@ -3,11 +3,12 @@ import requests
 import time
 import re
 import os
-
+from bot import TEXTO_MENSAGEM
 
 SERVER_URL = "http://localhost:3000"
 EXCEL_PATH = "Enviar.xlsx"
 DELAY_ENTRE_CONTATOS = 5
+
 
 
 def formatar_numero(numero):
@@ -41,7 +42,8 @@ def verificar_interrupcao():
 
     return os.path.exists("interromper.txt")
 
-def run_envio_PDF():
+def run_envio_PDF(TEXTO_MENSAGEM):
+    
     try:
         if verificar_interrupcao():
             os.remove("interromper.txt")
@@ -73,19 +75,15 @@ def run_envio_PDF():
                     continue
                 
                 # Envio da mensagem principal
+                # Monta a mensagem final
+                mensagem_final = (f"Oii {pessoa}, {mensagem}\n\n"  + "".join([list(item.values())[0] for item in TEXTO_MENSAGEM]))
+                
+                # Envio da mensagem principal
                 resposta_mensagem = requests.post(
                     f"{SERVER_URL}/send-message",
                     json={
                         "chatId": chat_id,
-                        "message": (
-                            f"Oii {pessoa}, {mensagem}\n\n"
-                            "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"
-                            "✅ Descontos imperdíveis!\n"
-                            "✅ Frete grátis no raio de 120kM\n"
-                            "✅ Preços exclusivos!\n\n"
-                            "⏳ Melhor hora para comprar!\n"
-                            "Digite *1* para orçamento! 😁"
-                        )
+                        "message": mensagem_final
                     },
                     timeout=30
                 )
@@ -271,7 +269,7 @@ def run_envio_midia():
         return f"Erro no disparo: {str(e)}"
     
 if __name__ == "__main__":
-    resultado = run_envio_PDF()
+    resultado = run_envio_PDF(TEXTO_MENSAGEM)
     resultado = run_envio_mensegem()
     resultado = run_envio_midia()
     print(resultado)
