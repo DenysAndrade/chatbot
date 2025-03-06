@@ -10,7 +10,6 @@ EXCEL_PATH = "Enviar.xlsx"
 DELAY_ENTRE_CONTATOS = 5
 
 
-
 def formatar_numero(numero):
     numero_limpo = re.sub(r'\D', '', str(numero))
     if not numero_limpo.startswith('55'):
@@ -119,7 +118,7 @@ def run_envio_PDF(TEXTO_MENSAGEM):
         print(f"❌ Erro geral: {str(e)}")
         return f"Erro no disparo: {str(e)}"
 
-def run_envio_mensegem():
+def run_envio_mensegem(TEXTO_MENSAGEM):
     try:
         if verificar_interrupcao():
             os.remove("interromper.txt")
@@ -151,22 +150,21 @@ def run_envio_mensegem():
                     continue
                 
                 # Envio da mensagem principal
+                mensagem_final = f"Oii {pessoa}, {mensagem}\n\n" + "".join([list(item.values())[0] for item in TEXTO_MENSAGEM])                
+                # Envio da mensagem principal
                 resposta_mensagem = requests.post(
                     f"{SERVER_URL}/send-message",
                     json={
                         "chatId": chat_id,
-                        "message": (
-                            f"Oii {pessoa}, {mensagem}\n\n"
-                            "✨ Vim te avisar que a semana do consumidor está chegando ✨\n\n"
-                            "✅ Descontos imperdíveis!\n"
-                            "✅ Frete grátis no raio de 120kM\n"
-                            "✅ Preços exclusivos!\n\n"
-                            "⏳ Melhor hora para comprar!\n"
-                            "Digite *1* para orçamento! 😁"
-                        )
+                        "message": mensagem_final
                     },
                     timeout=30
                 )
+                
+                if resposta_mensagem.status_code == 200:
+                    enviados_com_sucesso += 1
+                else:
+                    print(f"❌ Falha no envio: {resposta_mensagem.text}")
 
             except Exception as e:
                 print(f"🔥 Erro crítico: {str(e)}")
@@ -270,6 +268,6 @@ def run_envio_midia():
     
 if __name__ == "__main__":
     resultado = run_envio_PDF(TEXTO_MENSAGEM)
-    resultado = run_envio_mensegem()
+    resultado = run_envio_mensegem(TEXTO_MENSAGEM)
     resultado = run_envio_midia()
     print(resultado)
