@@ -18,7 +18,7 @@ user_blocked_1 = {}
 feedback_pending = {}
 unrecognized_count = {}
 colaboradores = {}  
-administradores = {"558788149274@c.us"} 
+administradores = {"558788149274@c.us", "558799390379@c.us"} 
 employee_state = {}
 
 CONTATOS_ORCAMENTO = [
@@ -83,11 +83,9 @@ def carregar_mensagens():
             {"ms6": "Digite *1* para orçamento! 😁"}
         ]
 
-
 def salvar_mensagens(TEXTO_MENSAGEM):
     with open(ARQUIVO_JSON, "w", encoding="utf-8") as arquivo:
         json.dump(TEXTO_MENSAGEM, arquivo, ensure_ascii=False, indent=4)
-
 
 TEXTO_MENSAGEM = carregar_mensagens()
 
@@ -391,8 +389,6 @@ def on_message_colaborador(message):
         else:
             return
 
-
-
 def mostrar_msg_personalizada(TEXTO_MENSAGEM):
     if isinstance(TEXTO_MENSAGEM, str):
         TEXTO_MENSAGEM = [{"ms1": TEXTO_MENSAGEM}]  # Converte string para lista de dicionários
@@ -543,7 +539,7 @@ def handle_employee_flow(chat_id, text, sender_name):
         return True
 
     elif text == '11' and chat_id in administradores:
-        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n> *ANTES DE REALIZAR A CONFIRMACÃO DE ENVIO, CERTIFIQUE-SE QUE A MENSAGEM ESTA CORRETA, CASO PRECISE ALTERAR, DIGITE 13 E FACA AS MODIFICACÕES NECESSARIAS! *")
+        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n> *ANTES DE REALIZAR A CONFIRMACÃO DE ENVIO, CERTIFIQUE-SE QUE A MENSAGEM ESTA CORRETA, CASO PRECISE ALTERAR, DIGITE 13 E FACA AS MODIFICACÕES NECESSARIAS!*")
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
         employee_state[chat_id] = {'acao': CONFIRMAR_DISPARO_MENSAGEM}
         print(type(employee_state))
@@ -749,7 +745,6 @@ def processar_edicao_contato(chat_id, text):
         send_message(chat_id, "❌ Formato inválido! Use: *Nome | Telefone*")
         
     del employee_state[chat_id]
-
 
 def main():
     print("Bot iniciado. Aguardando mensagens...")
