@@ -1,5 +1,4 @@
 from time import sleep, time
-
 from datetime import datetime
 import requests
 import os 
@@ -273,7 +272,7 @@ def on_message(message):
         "boa noite": f"👋 Boa noite {sender_name}!\n \n🤖 Sou o Tupanzinho assistente virtual da Home Center Tupan de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "1": f"Aqui está {sender_name}, o contato de alguns de nossos vendedores, eles tiraram suas dúvidas e passaram o orçamento do seu produto: 🤩\n \n" + "\n".join([f"📞 {c['nome']}: {c['telefone']}" for c in CONTATOS_ORCAMENTO]) + "\n \nFicarei à disposição para qualquer dúvida! qualquer coisa só chamar 🤗",
         "2": f"🔥 Compre agora {sender_name}!\n \n📅 Promoção válida até *{DATA_PROMOCOES}* ou enquanto durar o estoque.\n \nDigite *1* e solicite ja seu orçamento! 🤩",
-        "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.\n \n*Lembrando que nosso atendimento funciona de segunda a sexta das 09h ate as 17h e aos sabados das 9h ate as 13h*",
+        "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.\n \n>*Lembrando que nosso atendimento funciona de segunda a sexta das 09h as 17h e aos sabados das 9h as 13h*",
         "4": f"{sender_name},  peço que envie o comprovante em *PDF* ou *IMAGEM*, onde apareça todas as informações do mesmo, juntamente com o *CPF* do titular da ficha.\nPara melhor identificação e agilidade no processo.\n \nEm caso de duvida, digite *3* e fale com o nosso atendente! 😉",
         "6": f"{sender_name}, digita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "5": "Seu feedback e muito importante para nós. 🥰\n \nDeixe aqui seu comentario, como foi sua experiencia de compra aqui na Tupan, e se achou todos os produtos que estava procurando. 🌟",
@@ -371,7 +370,8 @@ Opções adicionais:
 9️⃣ - Alterar data promoções
 🔟 - Gerenciar contatos de orçamento
 1️⃣1️⃣ - Disparo em massa de mensagem
-1️⃣2️⃣ - Disparo em massa Imagem/Video"""
+1️⃣2️⃣ - Disparo em massa Imagem/Video
+1️⃣3️⃣ - Editar mensagens de envio em massa """
 
 RESPOSTAS_COLABORADOR = {
     "obrigado": 'Agradecemos seu contato, a equipe Frente de loja ficara à sua disposição, qualquer coisa só chamar 🤗\n \nAte mais! ❤️💙💛', 
@@ -394,11 +394,17 @@ def on_message_colaborador(message):
 
 
 def mostrar_msg_personalizada(TEXTO_MENSAGEM):
+    if isinstance(TEXTO_MENSAGEM, str):
+        TEXTO_MENSAGEM = [{"ms1": TEXTO_MENSAGEM}]  # Converte string para lista de dicionários
+
     mensagem = "📝 Mensagens atuais:\n"
     for item in TEXTO_MENSAGEM:
-        for key, value in item.items():
-            mensagem += f"{key}: {value}\n"
-    return "".join([list(item.values())[0] for item in TEXTO_MENSAGEM])
+        if isinstance(item, dict):  # Verifica se item é um dicionário
+            for key, value in item.items():
+                mensagem += f"{key}: {value}\n"
+        else:
+            mensagem += f"Item inválido: {item}\n"
+    return "".join([list(item.values())[0] for item in TEXTO_MENSAGEM if isinstance(item, dict)])
 
 def handle_employee_flow(chat_id, text, sender_name):
     global employee_state
@@ -418,20 +424,20 @@ def handle_employee_flow(chat_id, text, sender_name):
         send_message(chat_id, "📦 Para transferência, informe:\nCódigo do produto | Quantidade | Filial origem | Filial destino")
         send_message(chat_id, "*OBSERVACÕES IMPORTANTES:*\n \n> *AS SOLICITACÕES DE TRANSFERÊNCIA DEVEM SER REALIZADAS ATE AS 15H DO DIA.*\n \n> *PEDIDOS FEITOS APOS AS 15H, SO SERÃO SOLICITADOS NO DIA SEGUINTE.*\n \n> *CASO HAJA URGÊNCIA DE PEDIDO, FAVOR IR ATE O BALCÃO DE ATENDIMENTO E REALIZAR AVISO, JUNTAMENTE COM AUTORIZACÃO DA GERENCIA.*\n \n> *VENDEDORES DEVEM FICAR ATENTOS AOS PEDIDOS, SEMPRE BUSCANDO ATUALIZACÃO COM O ATENDENTE.*")
         send_message(chat_id, "Boas vendas!! 🤗")
-        employee_state[chat_id] = 'aguardando_transferencia'
+        employee_state[chat_id] = {'estado': 'aguardando_transferencia'}
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         return 
         
     elif text == '2':
         send_message(chat_id, "🛒 Para pedido de compra, informe:\nNome do produto | Quantidade | Justificativa")
-        employee_state[chat_id] = 'aguardando_pedido'
+        employee_state[chat_id] = {'estado': 'pedido'}
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         return 
         
     elif text == '3':
         send_message(chat_id, "⚠️ Liste os produtos em falta:\n \n> *Colocando o codigo reduzido*")
-        employee_state[chat_id] = 'aguardando_faltantes'
+        employee_state[chat_id] = {'estado': 'aguardando_faltantes'}
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         user_blocked_1[chat_id] = {'blocked_at': time(), 'apology_sent': False}
         return 
@@ -443,59 +449,14 @@ def handle_employee_flow(chat_id, text, sender_name):
         
     elif text == '5' and chat_id in administradores:
         send_message(chat_id, "Digite o Chat ID do colaborador a ser removido:")
-        employee_state[chat_id] = 'aguardando_remocao'
+        employee_state[chat_id] = {'estado':'guardando_remocao'}
 
     elif text == '6' and chat_id in administradores:
         listar_colaboradores(chat_id)
 
-    global TEXTO_MENSAGEM
-    if text == '13' and chat_id in administradores:
-        # Mostra as mensagens atuais
-        send_message(chat_id, mostrar_msg_personalizada(TEXTO_MENSAGEM))
-        return True
-        
-    elif text.startswith('editar_') and chat_id in administradores:
-        try:
-            # Extrai o índice da mensagem a ser editada
-            index = int(text.split('_')[1]) - 1  # Subtrai 1 para usar como índice da lista
-            if index < 0 or index >= len(TEXTO_MENSAGEM):
-                send_message(chat_id, "⚠️ Índice inválido. Use um número entre 1 e 6.")
-                return True
-            
-            employee_state[chat_id] = {'acao': 'EDITANDO_MENSAGENS', 'index': index}
-            send_message(chat_id, f"Digite a nova mensagem para a posição {index + 1}:")
-            return True
-        except (IndexError, ValueError):
-            send_message(chat_id, "⚠️ Formato inválido. Use: editar_<índice>")
-            return True
-    
-    elif isinstance(employee_state, dict) and employee_state.get(chat_id, {}).get('acao') == 'EDITANDO_MENSAGENS':
-        try:
-            # Processa a edição da mensagem
-            index = employee_state[chat_id]['index']
-            nova_mensagem = text.replace("\\n", "\n")  # Substitui \\n por \n
-            
-            # Atualiza o dicionário de mensagens
-            print("Antes da edição:", TEXTO_MENSAGEM)
-            chave = f"ms{index + 1}"  # Gera a chave correta (ms1, ms2, etc.)
-            for item in TEXTO_MENSAGEM:
-                if chave in item:
-                    # Preserva a formatação original da mensagem
-                    item[chave] = nova_mensagem  # Mantém a formatação exatamente como foi enviada
-                    break
-            print("Após a edição:", TEXTO_MENSAGEM)
-            
-            # Salva as alterações no arquivo JSON
-            salvar_mensagens(TEXTO_MENSAGEM)
-            
-            send_message(chat_id, "✅ Mensagem atualizada com sucesso!")
-            del employee_state[chat_id]  # Limpa o estado
-            return True
-        except Exception as e:
-            send_message(chat_id, f"⚠️ Erro ao editar mensagem: {str(e)}")
-            return True
 
     elif text == '8' and chat_id in administradores:
+        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n> *ANTES DE REALIZAR A CONFIRMACÃO DE ENVIO, CERTIFIQUE-SE QUE A MENSAGEM ESTA CORRETA, CASO PRECISE ALTERAR, DIGITE 13 E FACA AS MODIFICACÕES NECESSARIAS!*")
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
         employee_state[chat_id] = {'acao': CONFIRMAR_DISPARO}
         return True
@@ -580,21 +541,24 @@ def handle_employee_flow(chat_id, text, sender_name):
     if isinstance(current_state, dict) and current_state.get('acao') in ['editando_contato', 'novo_contato']:
         processar_edicao_contato(chat_id, text)
         return True
-    
+
     elif text == '11' and chat_id in administradores:
+        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n> *ANTES DE REALIZAR A CONFIRMACÃO DE ENVIO, CERTIFIQUE-SE QUE A MENSAGEM ESTA CORRETA, CASO PRECISE ALTERAR, DIGITE 13 E FACA AS MODIFICACÕES NECESSARIAS! *")
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
-        employee_state[chat_id] = CONFIRMAR_DISPARO_MENSAGEM
+        employee_state[chat_id] = {'acao': CONFIRMAR_DISPARO_MENSAGEM}
         print(type(employee_state))
         return True
 
     # Adicione este novo caso para tratar a confirmação
-    elif employee_state.get(chat_id) == CONFIRMAR_DISPARO_MENSAGEM:
+    elif isinstance(employee_state.get(chat_id), dict) and employee_state[chat_id].get('acao') == CONFIRMAR_DISPARO_MENSAGEM:
         from envio import run_envio_mensegem
         print(f"[DEBUG] Estado atual: {employee_state.get(chat_id)} | Tipo: {type(employee_state.get(chat_id))}")
         if text.lower() == "confirmar":
             print(type(employee_state))
             try:
                 send_message(chat_id, "📢 Iniciando disparo em massa...")
+                print(f"[DEBUG] TEXTO_MENSAGEM: {TEXTO_MENSAGEM}")
+                print(f"[DEBUG] Tipo de TEXTO_MENSAGEM: {type(TEXTO_MENSAGEM)}")
                 resultado = run_envio_mensegem(TEXTO_MENSAGEM)  
                 
                 if resultado:
@@ -614,14 +578,14 @@ def handle_employee_flow(chat_id, text, sender_name):
             return True
 
     elif text == '12' and chat_id in administradores:
-        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n>LEMBRE DE MODIVICAR A PLANILHA *ENVIO*, DE ACORDO COM O QUE VC ESTA DISPARANDO\n \n>AS IMAGENS E VIDEOS DEVEM ESTA NA PASTA ASSENT, NA SUBPASTA PROMOCOES")
+        send_message(chat_id, "⚠️*ATENCÃO*⚠️\n \n> *LEMBRE DE MODIVICAR A PLANILHA *ENVIO*, DE ACORDO COM O QUE VC ESTA DISPARANDO*\n \n> *AS IMAGENS E VIDEOS DEVEM ESTA NA PASTA ASSENT, NA SUBPASTA PROMOCOES*")
         send_message(chat_id, "⚠️ *CONFIRMAR DISPARO EM MASSA* ⚠️\n\nDigite *CONFIRMAR* para iniciar o envio")
-        employee_state[chat_id] = CONFIRMAR_DISPARO_MENSAGEM_IMAGEM
+        employee_state[chat_id] = {'acao': CONFIRMAR_DISPARO_MENSAGEM_IMAGEM}        
         print(type(employee_state))
         return True
 
     # Adicione este novo caso para tratar a confirmação
-    elif employee_state.get(chat_id) == CONFIRMAR_DISPARO_MENSAGEM_IMAGEM:
+    elif isinstance(employee_state.get(chat_id), dict) and employee_state[chat_id].get('acao') == CONFIRMAR_DISPARO_MENSAGEM_IMAGEM:
         from envio import run_envio_midia
         print(f"[DEBUG] Estado atual: {employee_state.get(chat_id)} | Tipo: {type(employee_state.get(chat_id))}")
         if text.lower() == "confirmar":
@@ -645,7 +609,61 @@ def handle_employee_flow(chat_id, text, sender_name):
             send_message(chat_id, "❌ Disparo cancelado ")
             del employee_state[chat_id]
             return True
+        
+    if text == '13' and chat_id in administradores:
+        # Mostra as mensagens atuais
+        send_message(chat_id, mostrar_msg_personalizada(TEXTO_MENSAGEM))
+        return True
+        
+    elif text.startswith('editar_') and chat_id in administradores:
+        try:
+            # Extrai o índice da mensagem a ser editada
+            index = int(text.split('_')[1]) - 1  # Subtrai 1 para usar como índice da lista
+            if index < 0 or index >= len(TEXTO_MENSAGEM):
+                send_message(chat_id, "⚠️ Índice inválido. Use um número entre 1 e 6.")
+                return True
+            
+            employee_state[chat_id] = {'acao': 'EDITANDO_MENSAGENS', 'index': index}
+            send_message(chat_id, f"Digite a nova mensagem para a posição {index + 1}:")
+            return True
+        except (IndexError, ValueError):
+            send_message(chat_id, "⚠️ Formato inválido. Use: editar_<índice>")
+            return True
+    
+    elif isinstance(employee_state, dict) and employee_state.get(chat_id, {}).get('acao') == 'EDITANDO_MENSAGENS':
+        try:
+            # Processa a edição da mensagem
+            index = employee_state[chat_id]['index']
+            nova_mensagem = text.replace("\\n", "\n")  # Substitui \\n por \n
+            
+            # Atualiza o dicionário de mensagens
+            print("Antes da edição:", TEXTO_MENSAGEM)
+            chave = f"ms{index + 1}"  # Gera a chave correta (ms1, ms2, etc.)
+            for item in TEXTO_MENSAGEM:
+                if chave in item:
+                    # Preserva a formatação original da mensagem
+                    item[chave] = nova_mensagem  # Mantém a formatação exatamente como foi enviada
+                    break
+            print("Após a edição:", TEXTO_MENSAGEM)
+            
+            # Salva as alterações no arquivo JSON
+            salvar_mensagens(TEXTO_MENSAGEM)
+            
+            send_message(chat_id, "✅ Mensagem atualizada com sucesso!")
+            del employee_state[chat_id]  # Limpa o estado
+            return True
+        except Exception as e:
+            send_message(chat_id, f"⚠️ Erro ao editar mensagem: {str(e)}")
+            return True
+           
+    elif text in RESPOSTAS_COLABORADOR:
+        send_message(chat_id, RESPOSTAS_COLABORADOR[text]) 
+        return
 
+    else:
+        send_message(chat_id, f"Opcão invalida\n \n {EMPLOYEE_MENU}")
+        return
+    
 def handle_employee_state(chat_id, text):
     estado = employee_state[chat_id]
     
