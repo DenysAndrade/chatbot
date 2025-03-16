@@ -189,7 +189,7 @@ def handle_blocked_user(chat_id, text):
     
     if (current_time - block_data['blocked_at']) >= 60:
         if not block_data['apology_sent']:
-            send_message(chat_id, "Peço desculpas, vi aqui que você ainda não foi respondido pelo nosso atendente 😔.\nDigite 3, para retornar à fila de espera.")
+            #send_message(chat_id, "Peço desculpas, vi aqui que você ainda não foi respondido pelo nosso atendente 😔.\nDigite 3, para retornar à fila de espera.")
             user_blocked[chat_id]['apology_sent'] = True
         del user_blocked[chat_id]
         print(f"Usuário {chat_id} desbloqueado por timeout")
@@ -268,7 +268,7 @@ def on_message(message):
         "bom dia": f"👋 Bom dia {sender_name}!\n \n🤖 Sou o assistente virtual da *empresa* de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "boa tarde": f"👋 Boa tarde {sender_name}!\n \n🤖 Sou o assistente virtual da *empresa* de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
         "boa noite": f"👋 Boa noite {sender_name}!\n \n🤖 Sou o assistente virtual da *empresa* de Serra Talhada.\n \nDigita aqui pra mim o que vc precisa? Ou então, é só digita uma das opção 😉:\n*1️⃣ - Orçamento.*\n*2️⃣ - Promoções da semana.*\n*3️⃣ - Falar com nosso atendente.*\n*4️⃣ - Enviar comprovante de pagamento*\n*5️⃣ - Feedbacks*",
-        "1": f"Aqui está {sender_name}, o contato de alguns de nossos vendedores, eles tiraram suas dúvidas e passaram o orçamento do seu produto: 🤩\n \n" + "\n".join([f"📞 {c['nome']}: {c['telefone']}" for c in CONTATOS_ORCAMENTO]) + "\n \nFicarei à disposição para qualquer dúvida! qualquer coisa só chamar 🤗",
+        "1": f"Digita aqui pra mim {sender_name}, o ou os produtos que voce dejesa realizar o orçamento",
         "2": f"🔥 Compre agora {sender_name}!\n \n📅 Promoção válida até *{DATA_PROMOCOES}* ou enquanto durar o estoque.\n \nDigite *1* e solicite ja seu orçamento! 🤩",
         "3": f"⏳ Aguarde um momento, um atendente irá responder em breve {sender_name}!\nCaso queira retornar ao menu, digite 6.\n \n>*Lembrando que nosso atendimento funciona de segunda a sexta das 09h as 17h e aos sabados das 9h as 13h*",
         "4": f"{sender_name},  peço que envie o comprovante em *PDF* ou *IMAGEM*, onde apareça todas as informações do mesmo, juntamente com o *CPF* do titular da ficha.\nPara melhor identificação e agilidade no processo.\n \nEm caso de duvida, digite *3* e fale com o nosso atendente! 😉",
@@ -302,7 +302,14 @@ def on_message(message):
     if chat_id in colaboradores:
         handle_employee_flow(chat_id, text, sender_name)
         return
-
+    
+    if text == "1":
+        print(f"Usuário {chat_id} bloqueado para atendimento")
+        send_message(chat_id, respostas["1"])
+        user_blocked[chat_id] = {'blocked_at': time(), 'apology_sent': False}
+        unrecognized_count[chat_id] = 0  # Reseta contador
+        return
+    
     if text == "2":
         send_file(chat_id, PDF_PROMOCOES)
 
